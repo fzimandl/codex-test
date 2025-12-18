@@ -1,11 +1,28 @@
 spring:
   main:
     banner-mode: off
+    web-application-type: none
   datasource:
-    url: jdbc:h2:mem:ratesdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ''
+    #url: jdbc:h2:mem:ratesdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    # Add TCP keepalive and timeouts so dead sockets are detected quickly after system sleep
+    url: jdbc:postgresql://localhost:5432/mydb?tcpKeepAlive=true&connectTimeout=10&socketTimeout=30
+    username: postgres
+    password: postgres
+    hikari:
+      minimum-idle: 1
+      maximum-pool-size: 5
+      # Fast fail when borrowing a dead connection and validate quickly
+      connection-timeout: 10000 # 10 seconds (milliseconds)
+      validation-timeout: 5000 # 5 seconds (milliseconds)
+      # Keep idle connections alive to avoid abrupt closures after long sleeps
+      keepalive-time: 300000 # 5 minutes (milliseconds)
+      # Close truly idle connections a bit later than keepalive to refresh occasionally
+      idle-timeout: 600000 # 10 minutes (milliseconds)
+      # Recycle connections before many PG defaults (to avoid server-side timeouts)
+      max-lifetime: 1800000 # 30 minutes (milliseconds)
+    #driver-class-name: org.h2.Driver
+    #username: sa
+    #password: ''
   jpa:
     hibernate:
       ddl-auto: update
@@ -13,11 +30,23 @@ spring:
     properties:
       hibernate:
         format_sql: true
-  h2:
-    console:
-      enabled: true
+        h2:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+      console:
+        enabled: true
+
+logging:
+  level:
+    # Reduce noise from sporadic Hikari housekeeper warnings (often caused by system sleep)
+    com.zaxxer.hikari: error
+
+server:
+  port: 8081
 
 coinmate:
   rest-base-url: https://coinmate.io
   websocket-base-url: wss://coinmate.io
   reconnect-delay: 5s
+  # Send ping frames every 20s and reconnect if no frames are received for 45s
+  ping-interval: 20s
+  inactivity-timeout: 45s

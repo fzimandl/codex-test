@@ -22,6 +22,18 @@ public class CoinmateProperties {
      */
     private Duration reconnectDelay = Duration.ofSeconds(5);
 
+    /**
+     * Interval at which ping frames are sent on the WebSocket to keep the connection alive
+     * across NATs and to detect broken links after system sleep.
+     */
+    private Duration pingInterval = Duration.ofSeconds(20);
+
+    /**
+     * If no messages (including pings/pongs) are observed within this period, the client
+     * will time out the receive stream to trigger a reconnect.
+     */
+    private Duration inactivityTimeout = Duration.ofSeconds(45);
+
     public String getRestBaseUrl() {
         return restBaseUrl;
     }
@@ -44,5 +56,21 @@ public class CoinmateProperties {
 
     public void setReconnectDelay(Duration reconnectDelay) {
         this.reconnectDelay = reconnectDelay;
+    }
+
+    public Duration getPingInterval() {
+        return pingInterval;
+    }
+
+    public void setPingInterval(Duration pingInterval) {
+        this.pingInterval = pingInterval;
+    }
+
+    public Duration getInactivityTimeout() {
+        return inactivityTimeout;
+    }
+
+    public void setInactivityTimeout(Duration inactivityTimeout) {
+        this.inactivityTimeout = inactivityTimeout;
     }
 }

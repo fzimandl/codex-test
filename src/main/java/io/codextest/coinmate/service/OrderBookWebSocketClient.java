@@ -7,7 +7,9 @@ import io.codextest.coinmate.model.OrderBookSnapshot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.client.ReactorNettyWebSocketClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
@@ -37,11 +39,33 @@ public class OrderBookWebSocketClient {
                     URI uri = URI.create(String.format("%s/api/websocket/channel/order-book/%s",
                             properties.getWebsocketBaseUrl(), currencyPair));
                     log.info("Connecting to order book stream for {}", currencyPair);
-                    return webSocketClient.execute(uri, session -> session.receive()
-                            .map(message -> message.getPayloadAsText())
-                            .flatMap(payload -> extractSnapshot(currencyPair, payload))
-                            .doOnNext(consumer::accept)
-                            .then());
+                    return webSocketClient.execute(uri, session -> {
+                        // Heartbeat: send periodic WebSocket ping frames
+                        Flux<WebSocketMessage> pings = Flux.interval(properties.getPingInterval())
+                                .map(tick -> session.pingMessage(factory -> factory.wrap(new byte[] {1})))
+                                .doOnSubscribe(sub -> log.debug("Starting ping heartbeat for {}", currencyPair))
+                                .doOnError(err -> log.debug("Ping stream error for {}: {}", currencyPair, err.toString()));
+
+                        // Inbound processing with inactivity timeout to trigger reconnect after sleep
+                        Mono<Void> inbound = session.receive()
+                                // Trigger reconnect if nothing is received for the timeout period (e.g., after sleep)
+                                .timeout(properties.getInactivityTimeout())
+                                .flatMap(msg -> {
+                                    switch (msg.getType()) {
+                                        case TEXT:
+                                            return extractSnapshot(currencyPair, msg.getPayloadAsText())
+                                                    .doOnNext(consumer::accept);
+                                        case PONG:
+                                        case PING:
+                                        case BINARY:
+                                        default:
+                                            return Mono.empty();
+                                    }
+                                })
+                                .then();
+
+                        return session.send(pings).and(inbound);
+                    });
                 })
                 .retryWhen(Retry.backoff(Long.MAX_VALUE, properties.getReconnectDelay())
                         .doBeforeRetry(retrySignal -> log.warn("Reconnecting {} after error: {}",
