@@ -62,7 +62,9 @@ public class OrderBookWebSocketClient {
                                             return Mono.empty();
                                     }
                                 })
-                                .then();
+                                // If the server closes the connection cleanly, convert completion to an error
+                                // so our retryWhen(...) will perform a seamless reconnect.
+                                .then(Mono.error(new IllegalStateException("WebSocket closed for " + currencyPair)));
 
                         return session.send(pings).and(inbound);
                     });
