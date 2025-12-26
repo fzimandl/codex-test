@@ -67,10 +67,20 @@ public class OrderBookConversionService {
                 decimalFormat.format(btcCzk.bestAsk()),
                 decimalFormat.format(btcEur.bestBid()));
 
-        // Persist both rates with timestamp
+        // Persist both rates with timestamp, including picked amounts when available
         try {
-            ExchangeRate eurToCzkRate = new ExchangeRate(ConversionDirection.EUR_TO_CZK, eurToCzk, java.time.Instant.now());
-            ExchangeRate czkToEurRate = new ExchangeRate(ConversionDirection.CZK_TO_EUR, czkPerEur, java.time.Instant.now());
+            ExchangeRate eurToCzkRate = new ExchangeRate(
+                    ConversionDirection.EUR_TO_CZK,
+                    eurToCzk,
+                    btcCzk.bestBidAmount(), // bid amount from CZK book
+                    btcEur.bestAskAmount(), // ask amount from EUR book
+                    java.time.Instant.now());
+            ExchangeRate czkToEurRate = new ExchangeRate(
+                    ConversionDirection.CZK_TO_EUR,
+                    czkPerEur,
+                    btcEur.bestBidAmount(), // bid amount from EUR book
+                    btcCzk.bestAskAmount(), // ask amount from CZK book
+                    java.time.Instant.now());
             exchangeRateRepository.save(eurToCzkRate);
             exchangeRateRepository.save(czkToEurRate);
         } catch (Exception e) {

@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 public record OrderBookSnapshot(String currencyPair,
-                                BigDecimal bestBid,
-                                BigDecimal bestAsk,
-                                Instant receivedAt) {
+                               BigDecimal bestBid,
+                               BigDecimal bestBidAmount,
+                               BigDecimal bestAsk,
+                               BigDecimal bestAskAmount,
+                               Instant receivedAt) {
 }

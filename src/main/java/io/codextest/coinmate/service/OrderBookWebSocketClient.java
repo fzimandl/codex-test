@@ -87,38 +87,60 @@ public class OrderBookWebSocketClient {
             if (payload.isMissingNode()) {
                 return Mono.empty();
             }
-            BigDecimal bestBid = pickPrice(payload.path("bids"), true);
-            BigDecimal bestAsk = pickPrice(payload.path("asks"), false);
-            if (bestBid == null || bestAsk == null) {
+            PickedLevel bestBid = pickPrice(payload.path("bids"), true);
+            PickedLevel bestAsk = pickPrice(payload.path("asks"), false);
+            if (bestBid == null || bestAsk == null || bestBid.price == null || bestAsk.price == null) {
                 return Mono.empty();
             }
-            return Mono.just(new OrderBookSnapshot(currencyPair, bestBid, bestAsk, Instant.now()));
+            return Mono.just(new OrderBookSnapshot(
+                    currencyPair,
+                    bestBid.price,
+                    bestBid.amount,
+                    bestAsk.price,
+                    bestAsk.amount,
+                    Instant.now()
+            ));
         } catch (Exception ex) {
             log.warn("Failed to parse order book payload for {}: {}", currencyPair, ex.getMessage());
             return Mono.empty();
         }
     }
 
-    private BigDecimal pickPrice(JsonNode levels, boolean pickHighest) {
+    private PickedLevel pickPrice(JsonNode levels, boolean pickHighest) {
         if (levels == null || !levels.isArray() || levels.isEmpty()) {
             return null;
         }
-        BigDecimal best = null;
+        BigDecimal bestPrice = null;
+        BigDecimal bestAmount = null;
         for (JsonNode level : levels) {
             JsonNode priceNode = level.path("price");
+            JsonNode amountNode = level.path("amount");
             if (!priceNode.isNumber()) {
                 continue;
             }
             BigDecimal price = priceNode.decimalValue();
-            if (best == null) {
-                best = price;
+            BigDecimal amount = amountNode.isNumber() ? amountNode.decimalValue() : null;
+            if (bestPrice == null) {
+                bestPrice = price;
+                bestAmount = amount;
                 continue;
             }
-            int comparison = price.compareTo(best);
+            int comparison = price.compareTo(bestPrice);
             if ((pickHighest && comparison > 0) || (!pickHighest && comparison < 0)) {
-                best = price;
+                bestPrice = price;
+                bestAmount = amount;
             }
         }
-        return best;
+        return new PickedLevel(bestPrice, bestAmount);
+    }
+
+    private static final class PickedLevel {
+        final BigDecimal price;
+        final BigDecimal amount;
+
+        private PickedLevel(BigDecimal price, BigDecimal amount) {
+            this.price = price;
+            this.amount = amount;
+        }
     }
 }
