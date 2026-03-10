@@ -1,0 +1,21 @@
+.git
+.gitignore
+**/.idea/
+**/.vscode/
+**/.DS_Store
+
+# Maven build outputs and caches
+**/target/
+**/out/
+
+# Logs and temp
+**/logs/
+**/*.log
+**/tmp/
+**/build/
+
+# Node modules (if any)
+**/node_modules/
+
+# OS files
+**/Thumbs.db

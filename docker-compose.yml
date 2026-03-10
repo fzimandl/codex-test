@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: coinmate-db
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    image: coinmate-streamer:latest
+    container_name: coinmate-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Override Spring datasource to point to the db service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/mydb?tcpKeepAlive=true&connectTimeout=10&socketTimeout=30
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      # Optional: tune logging and profiles
+      # SPRING_PROFILES_ACTIVE: prod
+      # JAVA_OPTS: -Xms256m -Xmx512m
+    ports:
+      - "8081:8081"
+
+volumes:
+  pgdata:
+    driver: local
